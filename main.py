@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
-# from email_validator import validate_email, EmailNotValidError
+# from email_validator import validate_email, EmailNotValidError - module wasnt reading for some reason, couldn't utilize email validation regardless of the library
 import secrets
 
 app = Flask(__name__)
