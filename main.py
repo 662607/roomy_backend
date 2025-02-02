@@ -37,10 +37,30 @@ class Transaction(db.Model):
 
 # login and signup
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['POST'])
 def login():
-    return "login"
+    data = request.get_json()
 
+    if not data:
+        return jsonify({'error': 'No JSON data received'}), 400
+
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+
+    try:
+        user = User.query.filter_by(username=username).first()
+
+        if user and user.password == password:
+            return jsonify({'message': 'Login successful'}), 200
+        else:
+            return jsonify({'error': 'Invalid username or password'}), 401  # 401 Unauthorized
+
+    except Exception as e:
+        print(f"Login error: {e}")
+        return jsonify({'error': 'An error occurred during login'}), 500
 ''' 
 test
 @app.route('/create_account', methods=['POST'])
@@ -102,12 +122,6 @@ def signup():
         db.session.rollback()
         print(f"An unexpected error occurred during signup: {e}")
         return jsonify({'error': 'An unexpected error occurred'}), 500
-
-
-@app.route('/')
-def index():
-    print('inside index')
-    return "Hello!"
 
 # create new transaction
 # getting info from front end and creating new transaction on server (post request)
