@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
-from email_validator import validate_email, EmailNotValidError
+# from email_validator import validate_email, EmailNotValidError
+import secrets
 
 app = Flask(__name__)
 
@@ -16,6 +17,7 @@ class User(db.Model):
     password = db.Column(db.String(200), nullable=False)
     email = db.Column(db.String(200), nullable=False)
     money_spent = db.Column(db.Integer, nullable=False, default=0)
+    secret_key = db.Column(db.String(200), nullable=False, default="")
 
     def __repr__(self):
         return f"{self.first_name} {self.last_name} - {self.username}"
@@ -61,6 +63,7 @@ def login():
     except Exception as e:
         print(f"Login error: {e}")
         return jsonify({'error': 'An error occurred during login'}), 500
+
 ''' 
 test
 @app.route('/create_account', methods=['POST'])
@@ -93,12 +96,6 @@ def signup():
         if len(username) < 4 or len(username) > 20:
             return jsonify({'error': 'Username must be between 4 and 20 characters'}), 400
 
-        try:
-            validated_email = validate_email(email)
-            email = validated_email["email"]
-        except EmailNotValidError as e:
-            return jsonify({'error': str(e)}), 400
-
         if len(password) < 8:
             return jsonify({'error': 'Password must be at least 8 characters'}), 400
 
@@ -107,7 +104,8 @@ def signup():
             first_name=first_name,
             last_name=last_name,
             email=email,
-            password=password
+            password=password,
+            secret_key= secrets.token_urlsafe(32)
         )
         db.session.add(new_user)
         db.session.commit()
@@ -209,7 +207,7 @@ def fulfill_transaction(id):
 
 # split transaction and send requests to other users
 # creation of a transaction that is going to turn into two separate transactions (post request)
-## to do
+# to do
 
 # getting all transactions, sends back json of all the transactions
 # getting info from server and sending to front end (get request)
@@ -278,11 +276,6 @@ def update_user(id):
 
         if 'email' in data:
             email = data['email']
-            try:
-                validated_email = validate_email(email)
-                email = validated_email["email"]
-            except EmailNotValidError as e:
-                return jsonify({'error': str(e)}), 400
             user.email = email
 
         if 'password' in data:
@@ -299,18 +292,13 @@ def update_user(id):
         print(f"Error updating user: {e}")
         return jsonify({'error': 'An error occurred while updating the user'}), 500
 
-@app.route('/users/<int:id/spending/update', methods=['GET', 'PUT'])
-def update_user_spending(id):
-    user = User.query.get_or_404(id)
-    curr_money_spent = user.money_spent
 
-
-@app.route('users/<int:id>/spending', methods=['GET', 'POST'])
+@app.route('/users/<int:id>/spending', methods=['GET', 'POST'])
 def get_user_spending(id):
     user = User.query.get_or_404(id)
     return jsonify({"user" : user.name, "user spent" : user.money_spent}, 200)
 
-@app.route('users/<int:id>/transactions', methods=['GET', 'POST'])
+@app.route('/users/<int:id>/transactions', methods=['GET', 'POST'])
 def get_user_transactions(id):
     user = User.query.get_or_404(id)
 
@@ -353,19 +341,21 @@ def get_total_spent():
     return jsonify({"total spent" : total, "spending breakdown" : individual_spent})
 
 # deleting a user will delete transactions !! Must consider how to move forward with this...
+#@app.route('user/<int:id>/dashboard', methods=['GET'])
+#def display():
 
 '''
 @app.route('/users/<int:id>', methods=['DELETE'])  
 def delete_user(id):
-    user = User.query.get_or_404(id)  # Get the user or return 404 if not found
+    user = User.query.get_or_404(id) 
 
     try:
         # Delete associated transactions first (important for data integrity)
-        Transaction.query.filter_by(sender_id=user.id).delete() # Delete transactions where user is the sender
-        Transaction.query.filter_by(receiver_id=user.id).delete()  # Delete transactions where the user is the receiver
+        Transaction.query.filter_by(sender_id=user.id).delete() 
+        Transaction.query.filter_by(receiver_id=user.id).delete()  
         db.session.delete(user)  # Delete the user
         db.session.commit()
-        return jsonify({'message': 'User deleted successfully'}), 204  # 204 No Content
+        return jsonify({'message': 'User deleted successfully'}), 204
 
     except Exception as e:
         db.session.rollback()
